@@ -50,8 +50,17 @@ jobs:
           export debug_mode=${{ secrets.DEBUG_MODE }}
           export use_mail_wasm_parser=${{ secrets.BACKEND_USE_MAIL_WASM_PARSER }}
           cd worker/
-          echo '${{ secrets.BACKEND_TOML }}' > wrangler.toml
+
+          # safer write of wrangler.toml from secret
+          printf '%s' "${{ secrets.BACKEND_TOML }}" > wrangler.toml
+          echo "wrangler.toml written (length: $(wc -c < wrangler.toml) bytes)"
+
           pnpm install --no-frozen-lockfile
+
+          # diagnostic: enable wrangler debug logs and check authentication (non-fatal)
+          export WRANGLER_LOG=debug
+          echo "Running wrangler whoami..."
+          npx wrangler whoami || true
 
           if [ -n "$use_mail_wasm_parser" ]; then
             echo "Using mail-parser-wasm-worker"
@@ -61,13 +70,16 @@ jobs:
           fi
 
           if [ "$debug_mode" = "true" ]; then
+            # show full logs directly for debugging
             pnpm run deploy
           else
+            # run and print output if failure
             output=$(pnpm run deploy 2>&1)
-            if [ $? -ne 0 ]; then
-                code=$?
-                echo "Command failed with exit code $code"
-                exit $code
+            code=$?
+            echo "$output"
+            if [ $code -ne 0 ]; then
+              echo "pnpm run deploy failed with exit code $code"
+              exit $code
             fi
           fi
           echo "Deployed for tag ${{ github.ref_name }}"
