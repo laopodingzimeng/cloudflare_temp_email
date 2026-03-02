@@ -51,9 +51,15 @@ jobs:
           export use_mail_wasm_parser=${{ secrets.BACKEND_USE_MAIL_WASM_PARSER }}
           cd worker/
 
-          # safer write of wrangler.toml from secret
-          printf '%s' "${{ secrets.BACKEND_TOML }}" > wrangler.toml
+          # 使用 heredoc 安全写入 wrangler.toml（避免 Shell 解析导致引号丢失）
+          cat > wrangler.toml << 'EOF'
+          ${{ secrets.BACKEND_TOML }}
+          EOF
           echo "wrangler.toml written (length: $(wc -c < wrangler.toml) bytes)"
+
+          # 可选调试：显示前几行检查引号是否存在（确认后可删除）
+          echo "First 5 lines of wrangler.toml:"
+          head -5 wrangler.toml
 
           pnpm install --no-frozen-lockfile
 
